@@ -1,6 +1,6 @@
 //
 //  Protocols.swift
-//  EasyInject
+//  InjectGrail
 //
 //  Created by Łukasz Kwoska on 13/02/2021.
 //

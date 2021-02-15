@@ -1,9 +1,9 @@
-# EasyInject
+# InjectGrail
 
-[![CI Status](https://img.shields.io/travis/Łukasz Kwoska/EasyInject.svg?style=flat)](https://travis-ci.org/Łukasz Kwoska/EasyInject)
-[![Version](https://img.shields.io/cocoapods/v/EasyInject.svg?style=flat)](https://cocoapods.org/pods/EasyInject)
-[![License](https://img.shields.io/cocoapods/l/EasyInject.svg?style=flat)](https://cocoapods.org/pods/EasyInject)
-[![Platform](https://img.shields.io/cocoapods/p/EasyInject.svg?style=flat)](https://cocoapods.org/pods/EasyInject)
+[![CI Status](https://img.shields.io/travis/Łukasz Kwoska/InjectGrail.svg?style=flat)](https://travis-ci.org/Łukasz Kwoska/InjectGrail)
+[![Version](https://img.shields.io/cocoapods/v/InjectGrail.svg?style=flat)](https://cocoapods.org/pods/InjectGrail)
+[![License](https://img.shields.io/cocoapods/l/InjectGrail.svg?style=flat)](https://cocoapods.org/pods/InjectGrail)
+[![Platform](https://img.shields.io/cocoapods/p/InjectGrail.svg?style=flat)](https://cocoapods.org/pods/InjectGrail)
 
 
 This project requires a lot of attention in several areas:
@@ -21,15 +21,15 @@ This project requires a lot of attention in several areas:
 
 ## Installation
 
-EasyInject is available through [CocoaPods](https://cocoapods.org). To install
+InjectGrail is available through [CocoaPods](https://cocoapods.org). To install
 it, simply add the following line to your Podfile:
 
 ```ruby
-pod 'EasyInject'
+pod 'InjectGrail'
 ```
 
 ## Usage
-1.  `import EasyInject`
+1.  `import InjectGrail`
 2. For every class that needs to be `Injectable` instead o passing arguments directly to `init` create a protocol that will specify them and let it conform to `Injector` protocol.
     
     For example, let's say we have a `MessagesViewModel` which we want to be injectable.
@@ -50,7 +50,7 @@ pod 'EasyInject'
      ```
 3.   Add a new build script (before compilation):
      ```bash
-     "$PODS_ROOT/EasyInject/Scripts/inject.sh"
+     "$PODS_ROOT/InjectGrail/Scripts/inject.sh"
      ```
 4.   Add a class or struct that implements `RootInjector`. This will be your top most injector capable for injecting all other `Injectables`. 
     Injectables can be created manually as well.
@@ -61,7 +61,7 @@ pod 'EasyInject'
             let authenticationManager: AuthenticationManager
      }
      ```
-5. Compile. Injecting script will generate file `/Generated/Inject.generated.swift` in your project folder.
+5. Compile. Injecting script will generate file `/Generated/Inject.generated.swift` in your project folder. Add it to project.
 6. For every class that needs to be `Injectable`  let it implement `Injectable` and satisfy protocol requirements by creating field `injector` and `init(injector:...)`. Actual structs that can be used are created by the injection framework based on your `Injector`s  definitions. For example for our  `MessagesViewModel` we created protocol `MessagesViewModelInjector`, so injection framework created implementation in struct `MessagesViewModelInjectorImpl` (added `Impl`). We should use that.
     ```swift
     class MessagesViewModel: Injectable {
@@ -72,7 +72,7 @@ pod 'EasyInject'
         }
     }
     ```
-     All properties from `MessagesViewModelInjector` can be used directly in `MessagesViewModel` via extension that was automatically created by `EasyInject`.  So in this case we can use `networkManager` directly.
+     All properties from `MessagesViewModelInjector` can be used directly in `MessagesViewModel` via extension that was automatically created by `InjectGrail`.  So in this case we can use `networkManager` directly.
      ```swift
      class MessagesViewModel: Injectable {
         let injector: MessagesViewModelInjectorImpl
@@ -86,7 +86,7 @@ pod 'EasyInject'
         }
      }
      ```
-7. For each `Injector` `EasyInject` also creates protocol `Injects<InjectorName>` so in our case this would be `InjectsMessagesViewModelInjector`. Classes that are `Injectable` themselves and want to be able to inject to other `Injectables` can conform that protocol to create helper function `inject(...)`, that doesn injecting. `EasyInject` automatically resolves dependencies between current class' `Injector` and  target `Injector` and adds arguments to function `inject` for all that has not been found. Conforming to `Injects<InjectorName>` also adds all dependencies of the target to current injector `Impl`. 
+7. For each `Injector` `InjectGrail` also creates protocol `Injects<InjectorName>` so in our case this would be `InjectsMessagesViewModelInjector`. Classes that are `Injectable` themselves and want to be able to inject to other `Injectables` can conform that protocol to create helper function `inject(...)`, that doesn injecting. `InjectGrail` automatically resolves dependencies between current class' `Injector` and  target `Injector` and adds arguments to function `inject` for all that has not been found. Conforming to `Injects<InjectorName>` also adds all dependencies of the target to current injector `Impl`. 
 
     If we were to create `MessageRowViewModel` from `MessagesViewModel`. We would need to create `MessageRowViewModelInjector` and `let MessageRowViewModel implement Injectable`, like so:
     ```swift
@@ -130,7 +130,7 @@ pod 'EasyInject'
     In the example above `authenticationManager` will be always come from arguments to `inject` function of injecting classes.
     
 ### Resolving logic
-When resolving dependency against parent Injector `EasyInject` searches via type definition. If there are multiple properties of the same type, then it additionally matches by name. As mentioned above `Int`s and `String`s are never resolved.   
+When resolving dependency against parent Injector `InjectGrail` searches via type definition. If there are multiple properties of the same type, then it additionally matches by name. As mentioned above `Int`s and `String`s are never resolved.   
 
 ## Author
 
@@ -138,4 +138,4 @@ When resolving dependency against parent Injector `EasyInject` searches via type
 
 ## License
 
-EasyInject is available under the MIT license. See the LICENSE file for more info.
+InjectGrail is available under the MIT license. See the LICENSE file for more info.
