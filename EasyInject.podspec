@@ -9,34 +9,21 @@
 Pod::Spec.new do |s|
   s.name             = 'EasyInject'
   s.version          = '0.1.0'
-  s.summary          = 'A short description of EasyInject.'
-
-# This description is used to generate tags and improve search results.
-#   * Think: What does it do? Why did you write it? What is the focus?
-#   * Try to keep it short, snappy and to the point.
-#   * Write the description between the DESC delimiters below.
-#   * Finally, don't worry about the indent, CocoaPods strips it!
-
+  s.summary          = 'Easy Swift Injection framework for iOS and MacOs.'
   s.description      = <<-DESC
-TODO: Add long description of the pod here.
+Tired of injection framework that puts everything in one big bag of dependecy resolvers? This framework might be good for you.
                        DESC
 
-  s.homepage         = 'https://github.com/Łukasz Kwoska/EasyInject'
-  # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
+  s.homepage         = 'https://github.com/SwingDev/EasyInject'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
-  s.author           = { 'Łukasz Kwoska' => 'lukasz@kwoska.pl' }
-  s.source           = { :git => 'https://github.com/Łukasz Kwoska/EasyInject.git', :tag => s.version.to_s }
-  # s.social_media_url = 'https://twitter.com/<TWITTER_USERNAME>'
+  s.author           = { 'Łukasz Kwoska' => 'lukasz.kwoska@swing.dev' }
+  s.source           = { :git => 'https://github.com/SwingDev/EasyInject.git', :tag => s.version.to_s }
+  s.social_media_url = 'https://twitter.com/Szakulus'
 
   s.ios.deployment_target = '9.0'
+  s.swift_versions = '4.0'
 
-  s.source_files = 'EasyInject/Classes/**/*'
-  
-  # s.resource_bundles = {
-  #   'EasyInject' => ['EasyInject/Assets/*.png']
-  # }
-
-  # s.public_header_files = 'Pod/Classes/**/*.h'
-  # s.frameworks = 'UIKit', 'MapKit'
-  # s.dependency 'AFNetworking', '~> 2.3'
+  s.source_files = 'EasyInject/Classes/**/*.{swift}'
+  s.preserve_paths          = 'Scripts', 'Templates'
+  s.dependency 'Sourcery', '~> 1.2.0'
 end

@@ -1,0 +1,23 @@
+PODS:
+  - EasyInject (0.1.0):
+    - Sourcery (~> 1.2.0)
+  - Sourcery (1.2.0)
+
+DEPENDENCIES:
+  - EasyInject (from `../`)
+
+SPEC REPOS:
+  trunk:
+    - Sourcery
+
+EXTERNAL SOURCES:
+  EasyInject:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  EasyInject: 160091fb1084b16a955779fe94a8cba1093d15f9
+  Sourcery: 26638c4c8f7f0cec99699235595d316d20ce7c0b
+
+PODFILE CHECKSUM: f0e355c1f6764f0aaf3a5a46d972e5282b3547bc
+
+COCOAPODS: 1.10.0

@@ -29,11 +29,11 @@
 
 /* Begin PBXFileReference section */
 		090375DF55783BACE1D4C6CC /* Pods-EasyInject_Example.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EasyInject_Example.debug.xcconfig"; path = "Target Support Files/Pods-EasyInject_Example/Pods-EasyInject_Example.debug.xcconfig"; sourceTree = "<group>"; };
-		0DF638D880D2AFC09D6ECBBA /* LICENSE */ = {isa = PBXFileReference; includeInIndex = 1; name = LICENSE; path = ../LICENSE; sourceTree = "<group>"; };
+		0DF638D880D2AFC09D6ECBBA /* LICENSE */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = LICENSE; path = ../LICENSE; sourceTree = "<group>"; };
 		17F301E83664D4E61B66F438 /* Pods_EasyInject_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_EasyInject_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F90CBA91B481DC13BD28253 /* Pods_EasyInject_Tests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_EasyInject_Tests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		2F6FF41080A88EB694F85454 /* README.md */ = {isa = PBXFileReference; includeInIndex = 1; name = README.md; path = ../README.md; sourceTree = "<group>"; };
-		368A26D9C971A7F626935A42 /* EasyInject.podspec */ = {isa = PBXFileReference; includeInIndex = 1; name = EasyInject.podspec; path = ../EasyInject.podspec; sourceTree = "<group>"; };
+		2F6FF41080A88EB694F85454 /* README.md */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
+		368A26D9C971A7F626935A42 /* EasyInject.podspec */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = EasyInject.podspec; path = ../EasyInject.podspec; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
 		607FACD01AFB9204008FA782 /* EasyInject_Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyInject_Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		607FACD41AFB9204008FA782 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		607FACD51AFB9204008FA782 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -147,7 +147,6 @@
 				897354B5C01C1D6C4BFF17EB /* Pods-EasyInject_Tests.debug.xcconfig */,
 				B5FD7A67637E7744C533F222 /* Pods-EasyInject_Tests.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -227,6 +226,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 				Base,
 			);
