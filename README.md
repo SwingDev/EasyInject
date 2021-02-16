@@ -1,6 +1,5 @@
 # InjectGrail
 
-[![CI Status](https://img.shields.io/travis/Łukasz Kwoska/InjectGrail.svg?style=flat)](https://travis-ci.org/Łukasz Kwoska/InjectGrail)
 [![Version](https://img.shields.io/cocoapods/v/InjectGrail.svg?style=flat)](https://cocoapods.org/pods/InjectGrail)
 [![License](https://img.shields.io/cocoapods/l/InjectGrail.svg?style=flat)](https://cocoapods.org/pods/InjectGrail)
 [![Platform](https://img.shields.io/cocoapods/p/InjectGrail.svg?style=flat)](https://cocoapods.org/pods/InjectGrail)
