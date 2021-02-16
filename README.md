@@ -6,7 +6,7 @@
 [![Platform](https://img.shields.io/cocoapods/p/InjectGrail.svg?style=flat)](https://cocoapods.org/pods/InjectGrail)
 
 
-This project requires a lot of attention in several areas:
+This project is fully functional, but it requires a lot of attention in several areas:
  - Documentation,
  - Example,
  - Tests
@@ -16,6 +16,79 @@ This project requires a lot of attention in several areas:
  - Basic framework info. Why, Inspirations, etc...
  
  If you're willing to help then by all means chime in! We are open for PRs.
+
+ # TL;DR
+ This
+ ```swift
+ class MessagesViewController: UIViewController {
+     private let networkProvider: NetworkProvider
+     private let authProvider: AuthProvider
+     private let localStorage: LocalStorage
+     private let viewModel: MessagesViewModel
+
+     init(networkProvider: NetworkProvider, authProvider: AuthProvider,  localStorage: LocalStorage, ...) {
+        self.networkProvider = networkProvider
+        self.authProvider = authProvider
+        self.localStorage = localStorage
+        self.viewModel = MessagesViewModel(networkProvider: networkProvider, authProvider: authProvider, localStorage: localStorage, ...)
+     }
+ }
+// ------------------------------------------------------------------
+ class MessagesViewModel {
+      let networkProvider: NetworkProvider
+      let authProvider: AuthProvider
+      let localStorage: LocalStorage
+
+     init(networkProvider: NetworkProvider, authProvider: AuthProvider,  localStorage: LocalStorage, ...) {
+        self.networkProvider = networkProvider
+        self.authProvider = authProvider
+        self.localStorage = localStorage
+        self.authProvider.checkifLoggedIn()
+     }
+ }
+ ```
+ becomes
+ ```swift
+ protocol MessagesViewControllerInjector: Injector {
+ }
+
+  class MessagesViewController: UIViewController, Injectable, InjectsMessagesViewModelInjector {
+     let injector: MessagesViewControllerInjectorImpl
+     init(injector: MessagesViewControllerInjectorImpl) {
+        self.injector = injector
+        self.viewModel = MessagesViewModel(inject())
+     }
+ }
+// ------------------------------------------------------------------
+  protocol MessagesViewModelInjector: Injector {
+     var networkProvider: NetworkProvider {get}
+     var authProvider: AuthProvider {get}
+     var localStorage: LocalStorage {get}
+  }
+
+ class MessagesViewModel: Injectable {
+     let injector: MessagesViewModelInjectorImpl
+     init(injector: MessagesViewModelInjectorImpl) {
+        self.injector = injector
+        self.authProvider.checkifLoggedIn()
+     }
+ }
+ ```
+
+  - For each class you declare only dependencies needed by it. Not it's children.
+  - You don't get big bag of dependencies that you have to carry to all classes in your project.
+  - Dependencies are automatically pushed through hierarchy without touching parent classes definitions,
+  - `init` of each class contains only those dependencies that are trully needed by it or it's children (wrapped in a simple struct),
+  - Your classes can still be constructed manually,
+  - `inject` functions take as arguments dependencies that have not been found in current class, but are required by children.
+  - Not a single line of magic. You can Cmd+Click to see exact definitions. To achieve DI only protocols, structs and extensions are used.
+  - Command Completion for everything.
+
+## Summary of terms:
+ - `Injector` - specification of dependencies of a class
+ - `Injectable` - Class that needs its dependencies to be injected (via `Injector` in init)
+ - `InjectsXXX` - Must be implemented by parent class that wants to inject `XXX` injector.
+ -  `RootInjector` - Class or struct that implements this protocol will be automatically able to injects all `Injectors`. This is a top of injection tree. There must be exactly one class implementing this protocol.
 
 ## Requirements
 
