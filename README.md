@@ -212,3 +212,7 @@ When resolving dependency against parent Injector `InjectGrail` searches via typ
 ## License
 
 InjectGrail is available under the MIT license. See the LICENSE file for more info.
+
+## Acknowledgement
+- This project couldn't exist without [Sourcery](https://github.com/krzysztofzablocki/Sourcery). It's the main component behind the scences. 
+- [Annotation Inject](https://github.com/akane/AnnotationInject) - Thanks for showing me how easy it is to use sourcery from pod.
