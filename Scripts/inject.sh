@@ -11,7 +11,19 @@ else
   SOURCERY_BINPATH="sourcery"
 fi
 
+if [ -z "INJECT_OUTPUT" ]; then
+  INJECT_OUTPUT="$SRCROOT/Generated/"
+else
+  INJECT_OUTPUT="$INJECT_OUTPUT"
+fi
+
+if [ -z "INJECT_INPUT" ]; then
+  INJECT_INPUT="$SRCROOT"
+else
+  INJECT_INPUT="$INJECT_INPUT"
+fi
+
 set -x
 
-"$SOURCERY_BINPATH" --templates "$TEMPLATES" --sources "$SRCROOT" --output "$SRCROOT/Generated/" "$@"
+"$SOURCERY_BINPATH" --templates "$TEMPLATES" --sources "$INJECT_INPUT" --output "$INJECT_OUTPUT" "$@"
 # ./Pods/Sourcery/bin/sourcery --templates ./Templates 
