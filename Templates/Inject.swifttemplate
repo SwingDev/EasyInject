@@ -18,37 +18,74 @@ import <%= `import` %>
 <%_ 
 
 
-typealias Property =  (String, String, Bool)
+struct Property {
+  let name: String
+  let type: String
+  let forceManual: Bool
+  let isSelfProperty: Bool
+}
 
+extension Property {
+  func notSelf() -> Property {
+    return Property(name: name, type: type, forceManual: forceManual, isSelfProperty: false)
+  }
+}
+
+// Properties sorting function
+func sorted(_ properties: [Property]) -> [Property] {
+  return properties.enumerated()
+  .sorted(by: {a, b -> Bool in 
+  //Self properties go before inherited properties
+  if a.element.isSelfProperty && !b.element.isSelfProperty {
+    return true
+  } else if !a.element.isSelfProperty && b.element.isSelfProperty {
+    return false
+  }
+
+  if a.element.isSelfProperty {
+    //Self properties are sorted in order they were defined
+    return a.offset < b.offset
+  } else {
+    // Inherited properties are sorted alphabetically
+     return a.element.name < b.element.name
+  }
+  } )
+  .map { $0.element }
+}
+
+// Try to find source of the property in the list of properties available in parent
 func resolvePropertyFromSource(property: Property, sourceProperties: [Property]) -> Property? {
-  if (property.2) {
+  if (property.forceManual) {
       return nil
     }
     
-  if property.1 == "Int" || property.1 == "String" {
+  if property.type == "Int" || property.type == "String" {
     return nil
   }
 
-  let sourcePropertiesOfSameType = sourceProperties.filter({$0.1 == property.1})
+  let sourcePropertiesOfSameType = sourceProperties.filter({$0.type == property.type})
   if sourcePropertiesOfSameType.count == 1 {
     return sourcePropertiesOfSameType[0]
   }
 
-  let sourcePropertiesWithSameName = sourcePropertiesOfSameType.filter({$0.0 == property.0})
+  let sourcePropertiesWithSameName = sourcePropertiesOfSameType.filter({$0.name == property.name})
   return sourcePropertiesWithSameName.first
 }
 
 func resolvePropertyFromInjectingRecursively(property: Property, injector: String, sourceProperties: [String: [Property]], injectorsToInjectorsThatInject: [String: [String]], rootProperties: [Property]) -> Property? {
       
+    // Try to get property from direct parent
     let properties = sourceProperties[injector] ?? []
     if let matched = resolvePropertyFromSource(property: property, sourceProperties:properties) {
       return matched
     }
 
+    // Try to get property from root injector
     if let matched = resolvePropertyFromSource(property: property,  sourceProperties:rootProperties) {
       return matched
     }
 
+   // Traverse hierarchy
     for parent in (injectorsToInjectorsThatInject[injector] ?? []) {
       if let matched = resolvePropertyFromInjectingRecursively(property: property, injector: parent, sourceProperties: sourceProperties, injectorsToInjectorsThatInject: injectorsToInjectorsThatInject, rootProperties: rootProperties) {
         return matched
@@ -66,6 +103,7 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
 
     guard let rootInjectorProperties = injectorProperties["RootInjector"] else { fatalError("Implementation of RootInjector not found") }
 
+    // Build injection tree
     injectablesToInjects.keys.forEach({injectable in 
         guard let injector = injectablesToInjectors[injectable] else { fatalError("\(injectable) is not Injectable") }
         guard let injects = injectablesToInjects[injectable] else { fatalError("Inject not found for \(injectable)") }
@@ -76,10 +114,13 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
         }        
     })
 
+    // Find all injectors which injects doesn't inject any other injectors
     let leafInjectors = injectorProperties.keys.filter({(injectorsToInjectedInjectors[$0] == nil || injectorsToInjectedInjectors[$0]!.count == 0) && $0 != "RootInjector"})
+
     var injectorsToProcess: [String] = leafInjectors
     var processedInjectors: Set<String> = Set()
 
+    // Travers injection tree from leaves upwards
     while injectorsToProcess.count > 0 {
       let injector = injectorsToProcess[0]
       injectorsToProcess.remove(at: 0)
@@ -92,7 +133,8 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
         for property in (injectorProperties[injector] ?? []) {
             if let matched = resolvePropertyFromInjectingRecursively(property: property, injector: injectorThatInjects, sourceProperties: injectorProperties, injectorsToInjectorsThatInject: injectorsToInjectorsThatInject, rootProperties: rootInjectorProperties) {
               if resolvePropertyFromSource(property: matched, sourceProperties: injectorProperties[injectorThatInjects] ?? []) == nil {
-                injectorProperties[injectorThatInjects]?.append(matched)
+                //Append properties need by children and found in root injector or in parent
+                injectorProperties[injectorThatInjects]?.append(matched.notSelf())
               }
             }
         }
@@ -101,25 +143,29 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
       processedInjectors.insert(injector)
     }
 
-
     return injectorProperties
 }
 
-func printInjectFunction(injectorType :String, parentType: String, injectorProperties: [String: [Property]], useInjectorString: Bool) {
-  let targetProperties = injectorProperties[injectorType] ?? []
+func outputInjectFunction(injectorType :String, parentType: String, injectorProperties: [String: [Property]], useInjectorString: Bool) {
+  let targetProperties = sorted(injectorProperties[injectorType] ?? [])
   let sourceProperties = injectorProperties[parentType] ?? []
   var injectorMappings: [String: String] = [:]
-  targetProperties.forEach({targetProperty in if let sourceProperty = resolvePropertyFromSource(property: targetProperty,  sourceProperties: sourceProperties) { injectorMappings[targetProperty.0] = sourceProperty.0 } }) 
+  targetProperties.forEach({targetProperty in if let sourceProperty = resolvePropertyFromSource(property: targetProperty,  sourceProperties: sourceProperties) { injectorMappings[targetProperty.name] = sourceProperty.name } }) 
 
-  let arguments = targetProperties.filter({injectorMappings[$0.0] == nil})
+  let arguments = targetProperties.filter({injectorMappings[$0.name] == nil})
   %>
-  func inject(<%= arguments.map({"\($0.0): \($0.1)"}).joined(separator: ", ") %>) -> <%= injectorType %>Impl {
+  func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectorType %>Impl {
     return <%= injectorType %>Impl(
-      <%= targetProperties.map({target in let mapping = injectorMappings[target.0].map({source in useInjectorString ? "injector.\(source)" : source}) ; return "\(target.0): \(mapping ?? target.0)"}).joined(separator: ",\n      ") %>
+      <%= targetProperties.map({target in let mapping = injectorMappings[target.name].map({source in useInjectorString ? "injector.\(source)" : source}) ; return "\(target.name): \(mapping ?? target.name)"}).joined(separator: ",\n      ") %>
     )
   }
   <%
 }
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////MAIN ROUTINE/////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   let injectables = types.all.filter({ $0.inheritedTypes.contains("Injectable") })
   let injectors = types.protocols.filter({$0.inheritedTypes.contains("Injector") }) 
@@ -128,15 +174,19 @@ func printInjectFunction(injectorType :String, parentType: String, injectorPrope
   var injectablesToInjects: [String: [String]] = [:]
   var injectorProperties: [String: [Property]] = [:]
 
+  //Find root injector properties
   guard let rootInjector =   types.all.first(where: {$0.inheritedTypes.contains("RootInjector")})  else { fatalError("RootInjector not found.") } 
-  var rootInjectorProperties = rootInjector.storedVariables.map({($0.name, "\($0.typeName)", $0.annotations["forceManual"] != nil)}) ?? []
+  var rootInjectorProperties = rootInjector.storedVariables.map({Property(name: $0.name, type: "\($0.typeName)", forceManual: $0.annotations["forceManual"] != nil, isSelfProperty: false)}) ?? []
 
+  //Find injector self properties
   injectors.forEach {injector in 
     injectsToInjectors["Injects\(injector.name)"] = injector.name; 
-    injectorProperties[injector.name] = injector.instanceVariables.map({ return ($0.name, "\($0.typeName)", $0.annotations["forceManual"] != nil)})
+    injectorProperties[injector.name] = injector.instanceVariables.map({ return Property(name: $0.name, type: "\($0.typeName)", forceManual: $0.annotations["forceManual"] != nil, isSelfProperty: true)})
     return ;
   }
-
+  
+  // Build injection relation by 
+  // finding which Injectors are used to init which Injectables and which Injectables inject any other Injectors
   injectables.forEach({injectable in 
     if let injectorForInjectable = injectable.storedVariables.first(where: {$0.name == "injector"})?.typeName {
       injectablesToInjectors[injectable.name] = String("\(injectorForInjectable)".dropLast(4))
@@ -145,48 +195,60 @@ func printInjectFunction(injectorType :String, parentType: String, injectorPrope
     injectablesToInjects[injectable.name] = injectable.inheritedTypes.filter({$0.hasPrefix("Injects")})
   })
 
+  //Find properties required by all injectors (including ones required by their children and found in root injector)
   injectorProperties["RootInjector"] = rootInjectorProperties
-
   injectorProperties = resolveDependencyTree(injectorProperties: injectorProperties, injectsToInjectors: injectsToInjectors, injectablesToInjectors: injectablesToInjectors, injectablesToInjects: injectablesToInjects)
-
-  
 -%>
-
+//Extension of RootInject which contains definition of `inject` functions creating all other Injectors.
 extension <%=  rootInjector.name %> {
-<%  for type in injectors{
-    printInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectorProperties, useInjectorString: false)
+<%_  for type in injectors{
+    outputInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectorProperties, useInjectorString: false)
     } %>
 }
 
-<%_ for type in injectors{ -%>
-// MARK: - <%= type.name %>
+<%_ 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Print injectors
 
+for type in injectors{ -%>
+//MARK: - <%= type.name %>
+//Actual implementation of <%= type.name %> which includes all dependencies found in RootInjector and required by this injector's children.
 struct <%= type.name %>Impl: <%= type.name %> {
-  <% for property in (injectorProperties[type.name] ?? []) { %>
-  let <%= property.0%>: <%= property.1 -%>
+  <%_ for property in sorted(injectorProperties[type.name] ?? []) { %>
+  let <%= property.name%>: <%= property.type -%>
 <%  } %>
-
 }
+
 <%_ } -%>
 
-<%_ for type in injectables { -%>
+<%_ 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Print inject extensions and protocols
+
+for type in injectables { -%>
+<% guard let injector = injectablesToInjectors[type.name] else { fatalError("Injector not found for \(type.name)") } %>
+<% let childInjects = (injectablesToInjects[type.name] ?? [])  %>
 // MARK: - <%= type.name %>
+// This extension contains `inject` functions of Injectors injected by <%= type.name %>.
+// That is <%= childInjects.joined(separator: ", ") %>.
+// Based on the conforming to <%= childInjects.joined(separator: ", ") %>
+// and  proxy variables that makes properties of <%= injector %> visible in <%= type.name %>.
 extension <%= type.name %> {
-  <% guard let injector = injectablesToInjectors[type.name] else { fatalError("Injector not found for \(type.name)") }
-
-  for property in (injectorProperties[injector] ?? []) { %> var <%= property.0 %>: <%= property.1 %> { return injector.<%= property.0 %> }
-    <%
-  }
-
-  for injects in (injectablesToInjects[type.name] ?? []) { 
+<%
+  let properties = sorted(injectorProperties[injector] ?? [])
+  for property in properties { %> var <%= property.name %>: <%= property.type %> { return injector.<%= property.name %> } 
+<%}
+  for injects in childInjects { 
       guard let childInjector = injectsToInjectors[injects] else { fatalError("Child injector not found for \(injects)") }
-      printInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectorProperties, useInjectorString: true)
+      outputInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectorProperties, useInjectorString: true)
     %>
      
   <% } -%>
 }
 
-protocol Injects<%= type.name %>Injector {}
+//Classes that want to inject objects of <%= type.name %> should confom to this protocol. 
+//InjectGrail will extend their implementations with `inject` functions creating `<%= type.name %>Injector`
+protocol Injects<%= injector %> {}
 
 <%_ } -%>
 
