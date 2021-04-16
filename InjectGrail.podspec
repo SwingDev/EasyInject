@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'InjectGrail'
-  s.version          = '0.1.3'
+  s.version          = '0.1.4'
   s.summary          = 'Holly Grail of  Swift Injection frameworks for iOS and MacOs.'
   s.description      = <<-DESC
 Tired of injection framework that puts everything in one big bag of dependecy resolvers? This framework might be good for you.

@@ -17,6 +17,9 @@ import <%= `import` %>
 
 <%_ 
 
+func log(_ text: String) {
+    // Log.error(text)
+}
 
 struct Property {
   let name: String
@@ -77,21 +80,25 @@ func resolvePropertyFromInjectingRecursively(property: Property, injector: Strin
     // Try to get property from direct parent
     let properties = sourceProperties[injector] ?? []
     if let matched = resolvePropertyFromSource(property: property, sourceProperties:properties) {
+      log("RESOLVED FROM PARENT | ")
       return matched
     }
 
     // Try to get property from root injector
     if let matched = resolvePropertyFromSource(property: property,  sourceProperties:rootProperties) {
+      log("RESOLVED FROM ROOT | ")
       return matched
     }
 
    // Traverse hierarchy
     for parent in (injectorsToInjectorsThatInject[injector] ?? []) {
       if let matched = resolvePropertyFromInjectingRecursively(property: property, injector: parent, sourceProperties: sourceProperties, injectorsToInjectorsThatInject: injectorsToInjectorsThatInject, rootProperties: rootProperties) {
+        log("RESOLVED FROM GRAND PARENT | ")
         return matched
       }
     }
-
+    
+    log("NOT FOUND | ")
     return nil
 }
 
@@ -102,6 +109,8 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
     var injectorProperties = injectorProperties
 
     guard let rootInjectorProperties = injectorProperties["RootInjector"] else { fatalError("Implementation of RootInjector not found") }
+    let rootPropertiesTypes = rootInjectorProperties.map {$0.type}.joined(separator: ", ")
+    log("Root Injector Properties: \(rootPropertiesTypes)\n")
 
     // Build injection tree
     injectablesToInjects.keys.forEach({injectable in 
@@ -114,6 +123,15 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
         }        
     })
 
+    log("--------------------------\n")
+    for injector in injectorsToInjectedInjectors {
+        log("\(injector.key) injects:\n")
+        for injected in injector.value {
+          log("\t- \(injected)\n")
+        }
+    }
+    log("--------------------------\n")
+
     // Find all injectors which injects doesn't inject any other injectors
     let leafInjectors = injectorProperties.keys.filter({(injectorsToInjectedInjectors[$0] == nil || injectorsToInjectedInjectors[$0]!.count == 0) && $0 != "RootInjector"})
 
@@ -125,22 +143,40 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
       let injector = injectorsToProcess[0]
       injectorsToProcess.remove(at: 0)
 
-      if processedInjectors.contains(injector) {
-        continue
-      }
+      let  currentInjectorProperties = injectorProperties[injector] ?? []
 
-      for injectorThatInjects in (injectorsToInjectorsThatInject[injector] ?? []) {
-        for property in (injectorProperties[injector] ?? []) {
+      log("\n---\tChecking \(injector)\t---\n")
+
+      // Starting from the leaf injectors (injectors that don't inject other injectors)
+      // iterate over all injectors that inject already processed injectors to find if we need to add properties to their implementation
+      let injectorsThatInjectCurrentOne = injectorsToInjectorsThatInject[injector] ?? []
+      for injectorThatInjects in injectorsThatInjectCurrentOne {
+        log("Injected by \(injectorThatInjects)\n")
+        for property in currentInjectorProperties {
+          log("\(injector):\(property.type) \t\t")
             if let matched = resolvePropertyFromInjectingRecursively(property: property, injector: injectorThatInjects, sourceProperties: injectorProperties, injectorsToInjectorsThatInject: injectorsToInjectorsThatInject, rootProperties: rootInjectorProperties) {
               if resolvePropertyFromSource(property: matched, sourceProperties: injectorProperties[injectorThatInjects] ?? []) == nil {
-                //Append properties need by children and found in root injector or in parent
-                injectorProperties[injectorThatInjects]?.append(matched.notSelf())
+                //Append properties need by curren injector if not present in this injector, but found in parent or in the root
+                // injectorProperties[injectorThatInjects]?.append(matched.notSelf())
+                injectorProperties[injectorThatInjects] = (injectorProperties[injectorThatInjects] ?? []) + [matched.notSelf()]
               }
+              log("\n")
+            } else {
+              log("--\n")
             }
         }
-        injectorsToProcess.append(injectorThatInjects)
+        // Make sure to append children only once
+        if !processedInjectors.contains(injector) {
+          injectorsToProcess.append(injectorThatInjects)
+        }
       }
       processedInjectors.insert(injector)
+    }
+
+    log("------------------------------------------------------\n")
+    for properties in processedInjectors {
+      let list = injectorProperties[properties]?.map { $0.type }.joined(separator: ", ") ?? ""
+      log("\(properties) -> \(list)\n")
     }
 
     return injectorProperties
@@ -150,8 +186,18 @@ func outputInjectFunction(injectorType :String, parentType: String, injectorProp
   let targetProperties = sorted(injectorProperties[injectorType] ?? [])
   let sourceProperties = injectorProperties[parentType] ?? []
   var injectorMappings: [String: String] = [:]
-  targetProperties.forEach({targetProperty in if let sourceProperty = resolvePropertyFromSource(property: targetProperty,  sourceProperties: sourceProperties) { injectorMappings[targetProperty.name] = sourceProperty.name } }) 
 
+  log("------------------------------------------------------\n")
+  log("\(parentType) -> \(injectorType) mappings:\n")
+  targetProperties.forEach({targetProperty in 
+    if let sourceProperty = resolvePropertyFromSource(property: targetProperty,  sourceProperties: sourceProperties) { 
+      log("\(targetProperty.name) -> \(parentType):\(sourceProperty.name)\n")
+      injectorMappings[targetProperty.name] = sourceProperty.name
+    } else {
+      log("\(targetProperty.name) -> ARGUMENT\n")
+    } 
+  }) 
+  
   let arguments = targetProperties.filter({injectorMappings[$0.name] == nil})
   %>
   func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectorType %>Impl {
