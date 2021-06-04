@@ -8,7 +8,7 @@
 This project is fully functional, but it requires a lot of attention in several areas:
  - Documentation,
  - Example,
- - Tests
+ - Tests,
  - Other process related stuff,
  - Comments and other readability improvements in generated code,
  - Readability improvements in Sourcery Template,
