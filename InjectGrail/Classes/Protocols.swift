@@ -8,11 +8,14 @@
 import Foundation
 
 // Defines properties that can be injected to certain class
+@MainActor
 public protocol Injector {}
 
 // Defines root properties that can be injected into other classes. There can be only one type conforming to this
+@MainActor
 public protocol RootInjector {}
 
+@MainActor
 public protocol Injectable {
     associatedtype ActualInjector: Injector
 
