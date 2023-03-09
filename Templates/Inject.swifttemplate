@@ -18,7 +18,7 @@ import <%= `import` %>
 <%_ 
 
 func log(_ text: String) {
-    // Log.error(text)
+    //Log.error(text)
 }
 
 struct Property {
@@ -57,7 +57,7 @@ func sorted(_ properties: [Property]) -> [Property] {
 }
 
 // Try to find source of the property in the list of properties available in parent
-func resolvePropertyFromSource(property: Property, sourceProperties: [Property]) -> Property? {
+func resolvePropertyFromSource(property: Property, allProperties: [Property], sourceProperties: [Property]) -> Property? {
   if (property.forceManual) {
       return nil
     }
@@ -67,28 +67,50 @@ func resolvePropertyFromSource(property: Property, sourceProperties: [Property])
   }
 
   let sourcePropertiesOfSameType = sourceProperties.filter({$0.type == property.type})
-  let sourcePropertiesWithSameName = sourcePropertiesOfSameType.filter({$0.name == property.name})
-  return sourcePropertiesWithSameName.first
+  let allPropertiesOfSameType = allProperties.filter({$0.type == property.type})
+  let hasMoreThanOneSameTypeProperty = sourcePropertiesOfSameType.count > 1 || allPropertiesOfSameType.count > 1
+
+  if hasMoreThanOneSameTypeProperty {
+    let sourcePropertiesWithSameName = sourcePropertiesOfSameType.filter({$0.name == property.name})
+    return sourcePropertiesWithSameName.first
+  } else {
+      return sourcePropertiesOfSameType.first
+  }
 }
 
-func resolvePropertyFromInjectingRecursively(property: Property, injector: String, sourceProperties: [String: [Property]], injectorsToInjectorsThatInject: [String: [String]], rootProperties: [Property]) -> Property? {
+func resolvePropertyFromInjectingRecursively(resolvedProperty: Property, allProperties: [Property], sourceInjector: String, sourceProperties: [String: [Property]], injectorsToInjectorsThatInject: [String: [String]], rootProperties: [Property]) -> Property? {
       
     // Try to get property from direct parent
-    let properties = sourceProperties[injector] ?? []
-    if let matched = resolvePropertyFromSource(property: property, sourceProperties:properties) {
+    let properties = sourceProperties[sourceInjector] ?? []
+    if let matched = resolvePropertyFromSource(
+        property: resolvedProperty,
+        allProperties: allProperties,
+        sourceProperties:properties
+    ) {
       log("RESOLVED FROM PARENT | ")
       return matched
     }
 
     // Try to get property from root injector
-    if let matched = resolvePropertyFromSource(property: property,  sourceProperties:rootProperties) {
+    if let matched = resolvePropertyFromSource(
+        property: resolvedProperty,
+        allProperties: allProperties,
+        sourceProperties: rootProperties
+    ) {
       log("RESOLVED FROM ROOT | ")
       return matched
     }
 
    // Traverse hierarchy
-    for parent in (injectorsToInjectorsThatInject[injector] ?? []) {
-      if let matched = resolvePropertyFromInjectingRecursively(property: property, injector: parent, sourceProperties: sourceProperties, injectorsToInjectorsThatInject: injectorsToInjectorsThatInject, rootProperties: rootProperties) {
+    for parent in (injectorsToInjectorsThatInject[sourceInjector] ?? []) {
+      if let matched = resolvePropertyFromInjectingRecursively(
+            resolvedProperty: resolvedProperty,
+            allProperties: allProperties,
+            sourceInjector: parent,
+            sourceProperties: sourceProperties,
+            injectorsToInjectorsThatInject: injectorsToInjectorsThatInject,
+            rootProperties: rootProperties
+      ) {
         log("RESOLVED FROM GRAND PARENT | ")
         return matched
       }
@@ -155,8 +177,19 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
         log("Injected by \(injectorThatInjects)\n")
         for property in currentInjectorProperties {
           log("\(injector):\(property.type) \t\t")
-            if let matched = resolvePropertyFromInjectingRecursively(property: property, injector: injectorThatInjects, sourceProperties: injectorProperties, injectorsToInjectorsThatInject: injectorsToInjectorsThatInject, rootProperties: rootInjectorProperties) {
-              if resolvePropertyFromSource(property: matched, sourceProperties: injectorProperties[injectorThatInjects] ?? []) == nil {
+            if let matched = resolvePropertyFromInjectingRecursively(
+                resolvedProperty: property,
+                allProperties: currentInjectorProperties,
+                sourceInjector: injectorThatInjects,
+                sourceProperties: injectorProperties,
+                injectorsToInjectorsThatInject: injectorsToInjectorsThatInject,
+                rootProperties: rootInjectorProperties
+            ) {
+              if resolvePropertyFromSource(
+                    property: matched,
+                    allProperties: currentInjectorProperties,
+                    sourceProperties: injectorProperties[injectorThatInjects] ?? []
+              ) == nil {
                 //Append properties need by curren injector if not present in this injector, but found in parent or in the root
                 injectorProperties[injectorThatInjects] = (injectorProperties[injectorThatInjects] ?? []) + [matched.notSelf()]
               }
@@ -190,7 +223,11 @@ func outputInjectFunction(injectorType :String, parentType: String, injectorProp
   log("------------------------------------------------------\n")
   log("\(parentType) -> \(injectorType) mappings:\n")
   targetProperties.forEach({targetProperty in 
-    if let sourceProperty = resolvePropertyFromSource(property: targetProperty,  sourceProperties: sourceProperties) { 
+    if let sourceProperty = resolvePropertyFromSource(
+        property: targetProperty,
+        allProperties: targetProperties,
+        sourceProperties: sourceProperties
+    ) {
       log("\(targetProperty.name) -> \(parentType):\(sourceProperty.name)\n")
       injectorMappings[targetProperty.name] = sourceProperty.name
     } else {
@@ -300,3 +337,4 @@ extension <%= type.name %> {
 protocol Injects<%= injector %> {}
 
 <%_ } -%>
+
