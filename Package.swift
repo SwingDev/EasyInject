@@ -11,7 +11,7 @@ let package = Package(
         .library(name: "InjectGrail", targets: ["InjectGrail"])
     ],
     dependencies: [
-        .package(url: "https://github.com/krzysztofzablocki/Sourcery.git", from: "2.0.0")
+        .package(url: "https://github.com/krzysztofzablocki/Sourcery.git", from: "2.0.1")
     ],
     targets: [
         .target(name: "InjectGrail", path: "InjectGrail/Classes"),
