@@ -23,7 +23,8 @@ else
   INJECT_INPUT="$SRCROOT"
 fi
 
-set -x
 
-"$SOURCERY_BINPATH" --templates "$TEMPLATES" --sources "$INJECT_INPUT" --output "$INJECT_OUTPUT" "$@"
+echo "Extra: $EXTRA"
+
+"$SOURCERY_BINPATH" --templates "$TEMPLATES" --sources "$INJECT_INPUT" --output "$INJECT_OUTPUT" "$EXTRA" "$@"
 # ./Pods/Sourcery/bin/sourcery --templates ./Templates 
