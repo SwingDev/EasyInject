@@ -25,5 +25,5 @@ Tired of injection framework that puts everything in one big bag of dependecy re
 
   s.source_files = 'InjectGrail/Classes/**/*.{swift}'
   s.preserve_paths          = 'Scripts', 'Templates'
-  s.dependency 'Sourcery', '~> 2.0.1'
+  s.dependency 'Sourcery', '~> 2.0.2'
 end
