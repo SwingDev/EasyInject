@@ -218,10 +218,21 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
     return injectorProperties
 }
 
+func extractNeededName(_ attributes: AttributeList) -> String? {
+    guard 
+       let attribute = attributes["Needs"]?.first
+       else { return nil }
+
+    let name = String(describing: attribute)
+
+    return String(name[name.index(after: name.firstIndex(of: "<")!)...name.index(name.endIndex, offsetBy: -2)])
+}
 
 public func calculateInjectData() -> InjectData {
-  let injectables = types.all.filter({ $0.inheritedTypes.contains("Injectable") })
-  let injectors = types.protocols.filter({$0.inheritedTypes.contains("Injector") }) 
+  let injectables = types.all.filter({ $0.inheritedTypes.contains("Injectable") || $0.attributes["Needs"] != nil})
+  let needed = Set(types.all.flatMap { extractNeededName($0.attributes) })
+  
+  let injectors = types.protocols.filter({$0.inheritedTypes.contains("Injector") || needed.contains($0.name) }) 
   var injectsToInjectors: [String: String] = [:]
   var injectablesToInjectors: [String: String] = [:]
   var injectablesToInjects: [String: [String]] = [:]
@@ -245,6 +256,8 @@ public func calculateInjectData() -> InjectData {
   injectables.forEach({injectable in 
     if let injectorForInjectable = injectable.storedVariables.first(where: {$0.name == "injector"})?.typeName {
       injectablesToInjectors[injectable.name] = String("\(injectorForInjectable)".dropLast(4))
+    } else if let injectorForInjectable = extractNeededName(injectable.attributes) {
+        injectablesToInjectors[injectable.name] = injectorForInjectable
     }
   
     injectablesToInjects[injectable.name] = injectable.inheritedTypes.filter({$0.hasPrefix("Injects")})
