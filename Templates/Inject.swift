@@ -1,7 +1,7 @@
 import SourceryRuntime
 
 func log(_ text: String) {
-    //Log.error(text)
+    // Log.error(text)
 }
 
 public struct Property {
@@ -22,6 +22,7 @@ public struct InjectData {
   let injectables: [Type]
   let injectors: [Protocol]
   let injectsToInjectors: [String: String]
+  let injectorsToInjectables: [String: [String]]
   let injectablesToInjectors: [String: String]
   let injectablesToInjects: [String: [String]]
   let injectorProperties: [String: [Property]]
@@ -218,22 +219,44 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
     return injectorProperties
 }
 
-func extractNeededName(_ attributes: AttributeList) -> String? {
+func extractNeededName(_ type: Type) -> String? {
     guard 
-       let attribute = attributes["Needs"]?.first
+       let attribute = type.attributes["Needs"]?.first
        else { return nil }
 
     let name = String(describing: attribute)
 
-    return String(name[name.index(after: name.firstIndex(of: "<")!)...name.index(name.endIndex, offsetBy: -2)])
+    let injector = String(name[name.index(after: name.firstIndex(of: "<")!)...name.index(name.firstIndex(of: ">")!, offsetBy: -1)])
+    // Log.error("Needs: \(type.name) -> \(injector)\n")
+    return injector
+}
+
+func extractInjects(_ type: Type, _ injectablesToInjectors: [String: String]) -> [String] {
+    guard 
+       let attribute = type.attributes["Injects"]?.first
+       else { return [] }
+
+    let name = String(describing: attribute)
+
+    return String(name[name.index(after: name.firstIndex(of: "<")!)...name.index(name.endIndex, offsetBy: -2)]).components(separatedBy:",").compactMap{
+        let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let injectedInjector = injectablesToInjectors[trimmed] {
+            return "Injects\(injectedInjector)"
+        } else {
+            Log.error("Failed to find Injector for Injected class \($0) while checking \(type.name).\n")
+            return nil
+        }
+        }
 }
 
 public func calculateInjectData() -> InjectData {
   let injectables = types.all.filter({ $0.inheritedTypes.contains("Injectable") || $0.attributes["Needs"] != nil})
-  let needed = Set(types.all.flatMap { extractNeededName($0.attributes) })
+  let needed = Set(types.all.flatMap { extractNeededName($0) })
   
   let injectors = types.protocols.filter({$0.inheritedTypes.contains("Injector") || needed.contains($0.name) }) 
   var injectsToInjectors: [String: String] = [:]
+  var injectorsToInjects: [String: [String]] = [:]
+  var injectorsToInjectables: [String: [String]] = [:]
   var injectablesToInjectors: [String: String] = [:]
   var injectablesToInjects: [String: [String]] = [:]
   var injectorProperties: [String: [Property]] = [:]
@@ -255,12 +278,20 @@ public func calculateInjectData() -> InjectData {
   // finding which Injectors are used to init which Injectables and which Injectables inject any other Injectors
   injectables.forEach({injectable in 
     if let injectorForInjectable = injectable.storedVariables.first(where: {$0.name == "injector"})?.typeName {
-      injectablesToInjectors[injectable.name] = String("\(injectorForInjectable)".dropLast(4))
-    } else if let injectorForInjectable = extractNeededName(injectable.attributes) {
+        let injectableName = String("\(injectorForInjectable)".dropLast(4))
+        injectablesToInjectors[injectable.name] = injectableName
+        injectorsToInjectables[injectableName] = (injectorsToInjectables[injectableName] ?? []) + [injectable.name]
+    } else if let injectorForInjectable = extractNeededName(injectable) {
         injectablesToInjectors[injectable.name] = injectorForInjectable
+        injectorsToInjectables[injectorForInjectable] = (injectorsToInjectables[injectorForInjectable] ?? []) + [injectable.name]
     }
   
     injectablesToInjects[injectable.name] = injectable.inheritedTypes.filter({$0.hasPrefix("Injects")})
+  })
+
+  //Add dependencies from @Injects macro
+  injectables.forEach({injectable in 
+    injectablesToInjects[injectable.name] = (injectablesToInjects[injectable.name] ?? []) + extractInjects(injectable, injectablesToInjectors)
   })
 
   //Find properties required by all injectors (including ones required by their children and found in root injector)
@@ -272,6 +303,7 @@ public func calculateInjectData() -> InjectData {
     injectables: injectables,
     injectors: injectors, 
     injectsToInjectors: injectsToInjectors,
+    injectorsToInjectables: injectorsToInjectables,
     injectablesToInjectors: injectablesToInjectors,
     injectablesToInjects: injectablesToInjects,
     injectorProperties: injectorProperties)

@@ -23,8 +23,15 @@ else
   INJECT_INPUT="$SRCROOT"
 fi
 
+if [ -n "$LEGACY_INJECTION" ]; then
+  ARGS="legacyInjection"
+else
+  ARGS=""
+fi
+
 
 echo "Extra: $EXTRA"
+echo "Args: $ARGS"
 
-"$SOURCERY_BINPATH" --templates "$TEMPLATES" --sources "$INJECT_INPUT" --output "$INJECT_OUTPUT" "$EXTRA" "$@"
+"$SOURCERY_BINPATH" --templates "$TEMPLATES" --sources "$INJECT_INPUT" --output "$INJECT_OUTPUT" --args "$ARGS" "$EXTRA" "$@"
 # ./Pods/Sourcery/bin/sourcery --templates ./Templates 

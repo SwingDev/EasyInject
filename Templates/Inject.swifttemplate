@@ -12,7 +12,7 @@
        imports =  []
     } 
 
-func outputInjectFunction(injectorType :String, parentType: String, injectorProperties: [String: [Property]], useInjectorString: Bool) {
+func outputInjectFunction(injectorType :String, parentType: String, injectorProperties: [String: [Property]], useInjectorString: Bool, injectDirectly: Bool, injectableName: String) {
   let targetProperties = sorted(injectorProperties[injectorType] ?? [])
   let sourceProperties = injectorProperties[parentType] ?? []
   var injectorMappings: [String: String] = [:]
@@ -31,22 +31,33 @@ func outputInjectFunction(injectorType :String, parentType: String, injectorProp
       log("\(targetProperty.name) -> ARGUMENT\n")
     } 
   }) 
-  
   let arguments = targetProperties.filter({injectorMappings[$0.name] == nil})
-  %>
-  func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectorType %>Impl {
-    return <%= injectorType %>Impl(
-      <%= targetProperties.map({target in let mapping = injectorMappings[target.name].map({source in useInjectorString ? "injector.\(source)" : source}); return "\(target.name): \(mapping ?? target.name)"}).joined(separator: ",\n      ") %>
-    )
+
+  //Inject dependencies directly
+  if injectDirectly {  
+    %>
+    func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectableName %> {
+      return <%= injectableName %>(injector: <%= injectorType %>Impl(
+        <%= targetProperties.map({target in let mapping = injectorMappings[target.name].map({source in useInjectorString ? "injector.\(source)" : source}); return "\(target.name): \(mapping ?? target.name)"}).joined(separator: ",\n      ") %>
+      ))
+    }
+    <%
+  } else {
+%>
+    func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectorType %>Impl {
+      return <%= injectorType %>Impl(
+        <%= targetProperties.map({target in let mapping = injectorMappings[target.name].map({source in useInjectorString ? "injector.\(source)" : source}); return "\(target.name): \(mapping ?? target.name)"}).joined(separator: ",\n      ") %>
+      )
+    }
+    <%
   }
-  <%
 }
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////MAIN ROUTINE/////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+  let injectDirectly = argument["legacyInjection"] == nil
   let injectData = calculateInjectData()
 -%>
 // sourcery:file:InjectGrail/RootInjector.swift
@@ -58,7 +69,13 @@ import <%= `import` %>
 //Extension of RootInject which contains definition of `inject` functions creating all other Injectors.
 extension <%=  injectData.rootInjector.name %> {
 <%_  for type in injectData.injectors{
-    outputInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectData.injectorProperties, useInjectorString: false)
+    if injectDirectly {
+        injectData.injectorsToInjectables[type.name]?.forEach {injectableName in
+          outputInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectData.injectorProperties, useInjectorString: false, injectDirectly: true, injectableName: injectableName)
+        }
+    } else {
+      outputInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectData.injectorProperties, useInjectorString: false, injectDirectly: false, injectableName: type.name)
+    }
     } %>
 }
 // sourcery:end
@@ -104,7 +121,13 @@ extension <%= type.name %> {
 <%}
   for injects in childInjects { 
       guard let childInjector = injectData.injectsToInjectors[injects] else { fatalError("Child injector not found for \(injects)") }
-      outputInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectData.injectorProperties, useInjectorString: true)
+      if injectDirectly {
+        injectData.injectorsToInjectables[childInjector]?.forEach {injectableName in
+          outputInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectData.injectorProperties, useInjectorString: true, injectDirectly: true, injectableName: injectableName)
+        }
+      } else {
+        outputInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectData.injectorProperties, useInjectorString: true, injectDirectly: false, injectableName: childInjector)
+      }
     %>
      
   <% } -%>
