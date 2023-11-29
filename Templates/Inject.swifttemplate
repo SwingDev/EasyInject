@@ -12,7 +12,26 @@
        imports =  []
     } 
 
-func outputInjectFunction(injectorType :String, parentType: String, injectorProperties: [String: [Property]], useInjectorString: Bool, injectDirectly: Bool, injectableName: String) {
+
+    let testImports: [String]!
+    if let _imports = (argument["testImports"] as? [String]) {
+      testImports =  _imports
+    } else if let _import = argument["testImports"] as? String {
+      testImports = [_import]
+    } else {
+       testImports =  []
+    } 
+
+func outputInjectFunction(injectorType :String, 
+                          parentType: String, 
+                          injectorProperties: [String: [Property]], 
+                          useInjectorString: Bool, 
+                          initializerParams: [(String?, String)],
+                          injectDirectly: Bool, 
+                          injectableName: String, 
+                          protocolName: String, 
+                          addMock: Bool,
+                          isHelper: Bool = false) {
   let targetProperties = sorted(injectorProperties[injectorType] ?? [])
   let sourceProperties = injectorProperties[parentType] ?? []
   var injectorMappings: [String: String] = [:]
@@ -36,15 +55,16 @@ func outputInjectFunction(injectorType :String, parentType: String, injectorProp
   //Inject dependencies directly
   if injectDirectly {  
     %>
-    func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectableName %> {
-      return <%= injectableName %>(injector: <%= injectorType %>Impl(
+    func inject<% if isHelper { %>Impl<% } %>(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <% if isHelper { %><%= injectableName %><% } else { %><%= protocolName %><% } %> {
+     
+     return <% if addMock && !isHelper {%><% if useInjectorString {%> injector.<% }%>mock?.mock<%= protocolName %> ??<% } %> <%= injectableName %>(injector: <%= injectorType %>Impl(<% if addMock {%>mock: <% if useInjectorString {%> injector.<% }%>mock<% if targetProperties.count > 0 { %>,<%}%><% } %>
         <%= targetProperties.map({target in let mapping = injectorMappings[target.name].map({source in useInjectorString ? "injector.\(source)" : source}); return "\(target.name): \(mapping ?? target.name)"}).joined(separator: ",\n      ") %>
       ))
     }
     <%
   } else {
 %>
-    func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectorType %>Impl {
+    func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectorType %> {
       return <%= injectorType %>Impl(
         <%= targetProperties.map({target in let mapping = injectorMappings[target.name].map({source in useInjectorString ? "injector.\(source)" : source}); return "\(target.name): \(mapping ?? target.name)"}).joined(separator: ",\n      ") %>
       )
@@ -58,8 +78,24 @@ func outputInjectFunction(injectorType :String, parentType: String, injectorProp
 /////////////////////////////////////////////////////////MAIN ROUTINE/////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   let injectDirectly = argument["legacyInjection"] == nil
+  let addMocks = argument["noMocks"] == nil
   let injectData = calculateInjectData()
 -%>
+<% if addMocks { %>
+// sourcery:file:InjectGrail/Mock.swift
+import Foundation
+<%_ for `import` in imports { -%>
+import <%= `import` %>
+<%_ } -%>
+
+class InjectGrailMock {
+<% for type in injectData.injectables { let type = protocolName(type.name, data: injectData) -%>
+  var mock<%= type %>: <%= type %>? = nil
+<% } %>
+init() {}
+}
+// sourcery:end
+<% } %>
 // sourcery:file:InjectGrail/RootInjector.swift
 import Foundation
 <%_ for `import` in imports { -%>
@@ -71,14 +107,46 @@ extension <%=  injectData.rootInjector.name %> {
 <%_  for type in injectData.injectors{
     if injectDirectly {
         injectData.injectorsToInjectables[type.name]?.forEach {injectableName in
-          outputInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectData.injectorProperties, useInjectorString: false, injectDirectly: true, injectableName: injectableName)
+          for initializerParams in injectData.injectablesToInitializers[injectableName] ?? [] {
+            outputInjectFunction(injectorType: type.name, 
+                                parentType: "RootInjector", 
+                                injectorProperties: injectData.injectorProperties,
+                                useInjectorString: false,
+                                initializerParams: initializerParams, 
+                                injectDirectly: true, 
+                                injectableName: injectableName, 
+                                protocolName: protocolName(injectableName, data: injectData), 
+                                addMock: addMocks)
+          }
         }
     } else {
-      outputInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectData.injectorProperties, useInjectorString: false, injectDirectly: false, injectableName: type.name)
+      outputInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectData.injectorProperties, useInjectorString: false, initializerParams: [], injectDirectly: false, injectableName: type.name, protocolName: "", addMock: addMocks)
     }
     } %>
 }
 // sourcery:end
+<% if injectDirectly {%>
+// sourcery:file:InjectGrail/TestHelpers.swift
+import Foundation
+<%_ for `import` in imports { -%>
+import <%= `import` %>
+<%_ } -%>
+<%_ for `import` in testImports { -%>
+<%= `import` %>
+<%_ } -%>
+
+//Extension of RootInject which contains helper injectors.
+extension <%=  injectData.rootInjector.name %> {
+<%_  for type in injectData.injectors{
+    injectData.injectorsToInjectables[type.name]?.forEach {injectableName in
+      for initializerParams in injectData.injectablesToInitializers[injectableName] ?? [] {
+        outputInjectFunction(injectorType: type.name, parentType: "RootInjector", injectorProperties: injectData.injectorProperties, useInjectorString: false, initializerParams: initializerParams, injectDirectly: true, injectableName: injectableName, protocolName: protocolName(injectableName, data:injectData), addMock: addMocks, isHelper: true)
+      }
+    }
+  } %>
+}
+// sourcery:end
+<% } %>
 // sourcery:file:InjectGrail/Injectors.swift
 
 <%_ 
@@ -89,6 +157,7 @@ for type in injectData.injectors{ -%>
 //MARK: - <%= type.name %>
 //Actual implementation of <%= type.name %> which includes all dependencies found in RootInjector and required by this injector's children.
 struct <%= type.name %>Impl: <%= type.name %> {
+  <% if addMocks && injectData.injectorProperties[type.name]?.allSatisfy({$0.name != "mock"}) ?? false { %> let mock: InjectGrailMock? <%}%>
   <%_ for property in sorted(injectData.injectorProperties[type.name] ?? []) { %>
   let <%= property.name%>: <%= property.type -%>
 <%  } %>
@@ -123,10 +192,12 @@ extension <%= type.name %> {
       guard let childInjector = injectData.injectsToInjectors[injects] else { fatalError("Child injector not found for \(injects)") }
       if injectDirectly {
         injectData.injectorsToInjectables[childInjector]?.forEach {injectableName in
-          outputInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectData.injectorProperties, useInjectorString: true, injectDirectly: true, injectableName: injectableName)
+          for initializerParams in injectData.injectablesToInitializers[injectableName] ?? [] {
+            outputInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectData.injectorProperties, useInjectorString: true, initializerParams: initializerParams, injectDirectly: true, injectableName: injectableName, protocolName: protocolName(injectableName, data: injectData), addMock: addMocks)
+          }
         }
       } else {
-        outputInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectData.injectorProperties, useInjectorString: true, injectDirectly: false, injectableName: childInjector)
+        outputInjectFunction(injectorType: childInjector, parentType: injector, injectorProperties: injectData.injectorProperties, useInjectorString: true, initializerParams: [], injectDirectly: false, injectableName: childInjector, protocolName: childInjector,  addMock: addMocks)
       }
     %>
      

@@ -25,6 +25,10 @@ public struct InjectData {
   let injectorsToInjectables: [String: [String]]
   let injectablesToInjectors: [String: String]
   let injectablesToInjects: [String: [String]]
+  let injectablesToProtocols: [String: [String]]
+  // Each initializer is list of pairs representing each argument (label, type)
+  let injectablesToInitializers: [String: [[(String?, String)]]]
+  let protocolsToInjectables: [String: [String]]
   let injectorProperties: [String: [Property]]
 }
 
@@ -231,22 +235,35 @@ func extractNeededName(_ type: Type) -> String? {
     return injector
 }
 
-func extractInjects(_ type: Type, _ injectablesToInjectors: [String: String]) -> [String] {
+func extractInjects(_ type: Type, _ injectablesToInjectors: [String: String], _ protocolsToInjectables: [String: [String]]) -> [String] {
     guard 
        let attribute = type.attributes["Injects"]?.first
        else { return [] }
 
     let name = String(describing: attribute)
 
-    return String(name[name.index(after: name.firstIndex(of: "<")!)...name.index(name.endIndex, offsetBy: -2)]).components(separatedBy:",").compactMap{
-        let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let injectedInjector = injectablesToInjectors[trimmed] {
-            return "Injects\(injectedInjector)"
-        } else {
-            Log.error("Failed to find Injector for Injected class \($0) while checking \(type.name).\n")
-            return nil
-        }
-        }
+    return String(name[name.index(after: name.firstIndex(of: "<")!)...name.index(name.endIndex, offsetBy: -2)])
+    .components(separatedBy:",")
+    .flatMap{
+          let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+          if let injectedInjector = injectablesToInjectors[trimmed] {
+              return ["Injects\(injectedInjector)"]
+          } else if let injectedInjectors = protocolsToInjectables[trimmed]?.compactMap({ injectablesToInjectors[$0] })
+                                            .map({"Injects\($0)"}) {
+              return injectedInjectors
+          } else {
+              Log.error("Failed to find Injector for Injected class \($0) while checking \(type.name).\n")
+              return []
+          }
+    }
+}
+
+public func protocolName(_ injectable: String, data: InjectData) -> String {
+  var protocolName = injectable.replacingOccurrences(of: "Impl", with: "")
+  if injectData.protocolsToInjectables[protocolName] == nil {
+    protocolName = injectable
+  }
+  return protocolName
 }
 
 public func calculateInjectData() -> InjectData {
@@ -259,7 +276,10 @@ public func calculateInjectData() -> InjectData {
   var injectorsToInjectables: [String: [String]] = [:]
   var injectablesToInjectors: [String: String] = [:]
   var injectablesToInjects: [String: [String]] = [:]
+  var injectablesToInitializers: [String: [[(String?, String)]]] = [:]
   var injectorProperties: [String: [Property]] = [:]
+  var injectablesToProtocols: [String: [String]] = [:]
+  var protocolsToInjectables: [String: [String]] = [:]
 
   //Find root injector properties
   guard let rootInjector = types.all.first(where: {$0.inheritedTypes.contains("RootInjector")})  else { fatalError("RootInjector not found.") }
@@ -277,21 +297,43 @@ public func calculateInjectData() -> InjectData {
   // Build injection relation by 
   // finding which Injectors are used to init which Injectables and which Injectables inject any other Injectors
   injectables.forEach({injectable in 
+
+    var extraInitializers: [[(String?, String)]] = []
+
     if let injectorForInjectable = injectable.storedVariables.first(where: {$0.name == "injector"})?.typeName {
         let injectableName = String("\(injectorForInjectable)".dropLast(4))
         injectablesToInjectors[injectable.name] = injectableName
         injectorsToInjectables[injectableName] = (injectorsToInjectables[injectableName] ?? []) + [injectable.name]
+        //Macro generates initializer if needed
+        //This will be removed when we implement injection for all initializers
+        extraInitializers.append([("injector", injectorForInjectable.name)]) 
     } else if let injectorForInjectable = extractNeededName(injectable) {
         injectablesToInjectors[injectable.name] = injectorForInjectable
         injectorsToInjectables[injectorForInjectable] = (injectorsToInjectables[injectorForInjectable] ?? []) + [injectable.name]
+        //Macro generates initializer if needed
+        extraInitializers.append([("injector", injectorForInjectable)]) 
     }
   
     injectablesToInjects[injectable.name] = injectable.inheritedTypes.filter({$0.hasPrefix("Injects")})
+
+    let validInitializers = injectable.initializers
+    .filter({ initializer in initializer.parameters.first(where: { $0.name == "injector"}) != nil })
+    .map { initializer in initializer.parameters.map { ($0.argumentLabel, $0.typeName.name) }}
+    
+    injectablesToInitializers[injectable.name] = /* validInitializers +*/ extraInitializers
   })
 
-  //Add dependencies from @Injects macro
+  
   injectables.forEach({injectable in 
-    injectablesToInjects[injectable.name] = (injectablesToInjects[injectable.name] ?? []) + extractInjects(injectable, injectablesToInjectors)
+    //Add dependencies from @Injects macro
+    injectablesToInjects[injectable.name] = (injectablesToInjects[injectable.name] ?? []) + extractInjects(injectable, injectablesToInjectors, protocolsToInjectables)
+    
+    //Add mapping between injectables and protocols
+    injectablesToProtocols[injectable.name] = injectable.inheritedTypes
+    injectable.inheritedTypes.forEach {protocolName in 
+      protocolsToInjectables[protocolName] = (protocolsToInjectables[protocolName] ?? []) + [injectable.name]
+    }
+    
   })
 
   //Find properties required by all injectors (including ones required by their children and found in root injector)
@@ -306,6 +348,9 @@ public func calculateInjectData() -> InjectData {
     injectorsToInjectables: injectorsToInjectables,
     injectablesToInjectors: injectablesToInjectors,
     injectablesToInjects: injectablesToInjects,
+    injectablesToProtocols: injectablesToProtocols,
+    injectablesToInitializers: injectablesToInitializers,
+    protocolsToInjectables: protocolsToInjectables,
     injectorProperties: injectorProperties)
 }
 

@@ -21,6 +21,15 @@ If you're willing to help then by all means chime in! We are open for PRs.
 This
 
 ```swift
+class Context {
+     let networkProvider: NetworkProvider
+     let authProvider: AuthProvider
+     let localStorage: LocalStorage
+}
+let context = Context(...)
+
+let VC = MessagesViewController(networkProvider: context.networkProvider, authProvider: context.authProvider, localStorage: context.localStorage)
+//----------------------------------------------------------------
 class MessagesViewController: UIViewController {
     private let networkProvider: NetworkProvider
     private let authProvider: AuthProvider
@@ -44,7 +53,10 @@ class MessagesViewModel {
        self.networkProvider = networkProvider
        self.authProvider = authProvider
        self.localStorage = localStorage
-       self.authProvider.checkifLoggedIn()
+    }
+
+    func checkIfLoggedIn() -> Bool  {
+        self.authProvider.checkifLoggedIn()
     }
 }
 ```
@@ -52,28 +64,38 @@ class MessagesViewModel {
 becomes
 
 ```swift
-protocol MessagesViewControllerInjector: Injector {
+
+class Context: RootInjector {
+     let networkProvider: NetworkProvider
+     let authProvider: AuthProvider
+     let localStorage: LocalStorage
+}
+let context = Context(...)
+
+let VC: MessagesViewController = context.inject()
+//------------------------------------------------------
+protocol MessagesViewControllerInjector {
 }
 
- class MessagesViewController: UIViewController, Injectable, InjectsMessagesViewModelInjector {
-    let injector: MessagesViewControllerInjectorImpl
+ @Needs<MessagesViewControllerInjector>
+ @Injects<MessagesViewModelInjector>
+ class MessagesViewController: UIViewController {
     init(injector: MessagesViewControllerInjectorImpl) {
        self.injector = injector
-       self.viewModel = MessagesViewModel(inject())
+       self.viewModel = inject()
     }
 }
-// ------------------------------------------------------------------
- protocol MessagesViewModelInjector: Injector {
+// ------------------------------------------------------
+ protocol MessagesViewModelInjector {
     var networkProvider: NetworkProvider {get}
     var authProvider: AuthProvider {get}
     var localStorage: LocalStorage {get}
  }
 
-class MessagesViewModel: Injectable {
-    let injector: MessagesViewModelInjectorImpl
-    init(injector: MessagesViewModelInjectorImpl) {
-       self.injector = injector
-       self.authProvider.checkifLoggedIn()
+@Needs<MessagesViewModelInjector>
+class MessagesViewModel {
+    func checkIfLoggedIn() -> Bool  {
+        self.authProvider.checkifLoggedIn()
     }
 }
 ```
