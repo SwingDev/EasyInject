@@ -23,12 +23,19 @@ else
   INJECT_INPUT="$SRCROOT"
 fi
 
+ARGS=""
+
 if [ -n "$LEGACY_INJECTION" ]; then
-  ARGS="legacyInjection"
-else
-  ARGS=""
+  ARGS="legacyInjection,$ARGS"
 fi
 
+if [ -n "$IMPORTS" ]; then
+  ARGS="imports=$IMPORTS,$ARGS"
+fi
+
+if [ -n "$TEST_IMPORTS" ]; then
+  ARGS="testImports=$TEST_IMPORTS,$ARGS"
+fi
 
 echo "Extra: $EXTRA"
 echo "Args: $ARGS"
