@@ -248,6 +248,8 @@ func extractInjects(_ type: Type, _ injectablesToInjectors: [String: String], _ 
           let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
           if let injectedInjector = injectablesToInjectors[trimmed] {
               return ["Injects\(injectedInjector)"]
+          } else if let injectedInjector = injectablesToInjectors[trimmed + "Impl"] {
+              return ["Injects\(injectedInjector)"]
           } else if let injectedInjectors = protocolsToInjectables[trimmed]?.compactMap({ injectablesToInjectors[$0] })
                                             .map({"Injects\($0)"}) {
               return injectedInjectors
