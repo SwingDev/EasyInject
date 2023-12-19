@@ -64,7 +64,7 @@ func outputInjectFunction(injectorType :String,
     <%
   } else {
 %>
-    func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectorType %> {
+    func inject(<%= arguments.map({"\($0.name): \($0.type)"}).joined(separator: ", ") %>) -> <%= injectorType %>Impl {
       return <%= injectorType %>Impl(
         <%= targetProperties.map({target in let mapping = injectorMappings[target.name].map({source in useInjectorString ? "injector.\(source)" : source}); return "\(target.name): \(mapping ?? target.name)"}).joined(separator: ",\n      ") %>
       )
@@ -148,8 +148,12 @@ extension <%=  injectData.rootInjector.name %> {
 // sourcery:end
 <% } %>
 // sourcery:file:InjectGrail/Injectors.swift
+import Foundation
+<%_ for `import` in imports { -%>
+import <%= `import` %>
+<%_ } -%>
 
-<%_ 
+<%_
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Print injectors
 

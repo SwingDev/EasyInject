@@ -25,6 +25,10 @@ fi
 
 ARGS=""
 
+if [ -n "$NO_MOCKS" ]; then
+  ARGS="noMocks,$ARGS"
+fi
+
 if [ -n "$LEGACY_INJECTION" ]; then
   ARGS="legacyInjection,$ARGS"
 fi
