@@ -224,9 +224,15 @@ func resolveDependencyTree(injectorProperties: [String: [Property]],  injectsToI
 }
 
 func extractNeededName(_ type: Type) -> String? {
-    guard 
+    guard
        let attribute = type.attributes["Needs"]?.first
-       else { return nil }
+    else {
+        if type.attributes["NeedsInjector"]?.first != nil {
+            return type.name.replacingOccurrences(of: "Impl", with: "Injector")
+        } else {
+            return nil
+        }
+    }
 
     let name = String(describing: attribute)
 
@@ -248,6 +254,8 @@ func extractInjects(_ type: Type, _ injectablesToInjectors: [String: String], _ 
           let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
           if let injectedInjector = injectablesToInjectors[trimmed] {
               return ["Injects\(injectedInjector)"]
+          } else if let injectedInjector = injectablesToInjectors[trimmed + "Impl"] {
+              return ["Injects\(injectedInjector)"]
           } else if let injectedInjectors = protocolsToInjectables[trimmed]?.compactMap({ injectablesToInjectors[$0] })
                                             .map({"Injects\($0)"}) {
               return injectedInjectors
@@ -267,7 +275,7 @@ public func protocolName(_ injectable: String, data: InjectData) -> String {
 }
 
 public func calculateInjectData() -> InjectData {
-  let injectables = types.all.filter({ $0.inheritedTypes.contains("Injectable") || $0.attributes["Needs"] != nil})
+  let injectables = types.all.filter({ $0.inheritedTypes.contains("Injectable") || $0.attributes["Needs"] != nil || $0.attributes["NeedsInjector"] != nil })
   let needed = Set(types.all.flatMap { extractNeededName($0) })
   
   let injectors = types.protocols.filter({$0.inheritedTypes.contains("Injector") || needed.contains($0.name) }) 
