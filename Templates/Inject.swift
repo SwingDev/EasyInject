@@ -228,7 +228,7 @@ func extractNeededName(_ type: Type) -> String? {
        let attribute = type.attributes["Needs"]?.first
     else {
         if type.attributes["NeedsInjector"]?.first != nil {
-            return type.name.replacingOccurrences(of: "Impl", with: "Injector")
+            return type.name.replacingOccurrences(of: "Impl", with: "") + "Injector"
         } else {
             return nil
         }
