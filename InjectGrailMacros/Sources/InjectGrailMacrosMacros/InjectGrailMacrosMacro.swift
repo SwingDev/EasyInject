@@ -42,7 +42,7 @@ public struct NeedsInjectorMacro: MemberMacro {
         }
 
         let className = classDeclaration.name.text
-        let injectorProtocolType = className.replacingOccurrences(of: "Impl", with: "Injector")
+        let injectorProtocolType = className.replacingOccurrences(of: "Impl", with: "") + "Injector"
 
         let noLet = declaration.memberBlock.members.first(where: { $0.decl.as(VariableDeclSyntax.self)?.bindings.first(where: { "\($0.pattern)"  == "injector" }) != nil}) != nil
         let noConstructor = declaration.memberBlock.members.first(where: { $0.decl.as(InitializerDeclSyntax.self) != nil})?.decl.as(InitializerDeclSyntax.self)!.signature.parameterClause.parameters.first?.firstName.text == "injector"
