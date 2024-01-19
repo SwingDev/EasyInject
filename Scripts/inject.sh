@@ -44,5 +44,5 @@ fi
 echo "Extra: $EXTRA"
 echo "Args: $ARGS"
 
-"$SOURCERY_BINPATH" --templates "$TEMPLATES" --sources "$INJECT_INPUT" --output "$INJECT_OUTPUT" --args "$ARGS" "$EXTRA" "$@"
+$SOURCERY_BINPATH --templates "$TEMPLATES" --sources "$INJECT_INPUT" --output "$INJECT_OUTPUT" --args "$ARGS" "$EXTRA" "$@"
 # ./Pods/Sourcery/bin/sourcery --templates ./Templates 
