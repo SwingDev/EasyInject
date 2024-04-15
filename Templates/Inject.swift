@@ -242,9 +242,10 @@ func extractNeededName(_ type: Type) -> String? {
 }
 
 func extractInjects(_ type: Type, _ injectablesToInjectors: [String: String], _ protocolsToInjectables: [String: [String]]) -> [String] {
-    guard 
-       let attribute = type.attributes["Injects"]?.first
-       else { return [] }
+    guard
+        let injectsKey = type.attributes.keys.first(where: { $0.hasPrefix("Injects") }),
+        let attribute = type.attributes[injectsKey]?.first
+    else { return [] }
 
     let name = String(describing: attribute)
 
